@@ -3,6 +3,8 @@ package org.example.server;
 import org.example.model.Room;
 import org.example.model.User;
 import org.example.model.Message;
+import org.example.persistence.PersistenceManager;
+import com.google.gson.*;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -25,6 +27,7 @@ public class Server {
     private Map<String, User> registeredUsers;
     private Map<String, ClientHandler> connectedClients;
     private Map<String, Room> rooms;
+    private static final Gson gson = new GsonBuilder().create();
     private volatile boolean acceptingClients;
     private volatile boolean maintenanceMode;
     private long nextUserKey;
@@ -39,9 +42,12 @@ public class Server {
         this.clientThreadPool = Executors.newFixedThreadPool(MAX_CLIENTS);
         this.acceptingClients = true;
         this.maintenanceMode = false;
-        this.nextUserKey = 100000;
 
-        initializePredefinedRooms();
+        // Initialize persistence
+        PersistenceManager.initialize();
+
+        // Load data from storage
+        loadStoredData();
     }
 
     /**
@@ -50,8 +56,52 @@ public class Server {
     private void initializePredefinedRooms() {
         String[] predefinedRoomNames = {"IA", "Deportes", "Therian", "Manga", "UEMC"};
         for (String roomName : predefinedRoomNames) {
-            rooms.put(roomName, new Room(roomName));
+            if (!rooms.containsKey(roomName)) {
+                rooms.put(roomName, new Room(roomName));
+            }
         }
+    }
+
+    /**
+     * Loads data from persistent storage.
+     */
+    private void loadStoredData() {
+        // Load registered users
+        Map<String, User> storedUsers = PersistenceManager.loadUsers();
+        registeredUsers.putAll(storedUsers);
+
+        // Load rooms
+        Map<String, Room> storedRooms = PersistenceManager.loadRooms();
+        rooms.putAll(storedRooms);
+
+        // Initialize predefined rooms if they don't exist
+        initializePredefinedRooms();
+
+        // Load messages for each room
+        for (Room room : rooms.values()) {
+            List<Message> messages = PersistenceManager.loadRoomMessages(room.getName());
+            for (Message msg : messages) {
+                room.addMessage(msg);
+            }
+        }
+
+        // Get next user key counter
+        nextUserKey = PersistenceManager.getNextUserKey();
+
+        System.out.println("Data loaded from storage: " + registeredUsers.size() + " users, " +
+                rooms.size() + " rooms");
+    }
+
+    /**
+     * Saves data to persistent storage (called periodically or on shutdown).
+     */
+    public void saveData() {
+        PersistenceManager.saveUsers(registeredUsers);
+        PersistenceManager.saveRooms(rooms);
+        for (Room room : rooms.values()) {
+            PersistenceManager.saveRoomMessages(room.getName(), room.getMessages());
+        }
+        System.out.println("Data saved to storage");
     }
 
     /**
@@ -94,10 +144,18 @@ public class Server {
      */
     private void startHeartbeatMonitor() {
         Thread heartbeatThread = new Thread(() -> {
+            int saveCounter = 0;
             while (true) {
                 try {
                     Thread.sleep(HEARTBEAT_CHECK_INTERVAL_MINUTES * 60 * 1000);
                     checkClientHeartbeats();
+
+                    // Save data every 5 minutes
+                    saveCounter++;
+                    if (saveCounter >= 5) {
+                        saveData();
+                        saveCounter = 0;
+                    }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
@@ -147,6 +205,13 @@ public class Server {
         User user = new User(username, key);
         registeredUsers.put(username, user);
 
+        // Persist users immediately to keep user keys durable
+        try {
+            PersistenceManager.saveUsers(registeredUsers);
+        } catch (Exception e) {
+            System.err.println("Warning: failed to persist users after register: " + e.getMessage());
+        }
+
         return key;
     }
 
@@ -178,8 +243,16 @@ public class Server {
         User user = registeredUsers.get(username);
         if (user != null) {
             user.setConnected(true);
+            user.setLastHeartbeat(java.time.LocalDateTime.now());
         }
         System.out.println("User connected: " + username);
+
+        // Persist user connection state (optional but useful for audits)
+        try {
+            PersistenceManager.saveUsers(registeredUsers);
+        } catch (Exception e) {
+            System.err.println("Warning: failed to persist users on connect: " + e.getMessage());
+        }
     }
 
     /**
@@ -200,6 +273,31 @@ public class Server {
         }
 
         System.out.println("User disconnected: " + username);
+
+        // Persist user connection state change
+        try {
+            PersistenceManager.saveUsers(registeredUsers);
+        } catch (Exception e) {
+            System.err.println("Warning: failed to persist users on disconnect: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Update the last heartbeat time for a given user (used by ClientHandler).
+     *
+     * @param username the username to update
+     */
+    public synchronized void updateUserHeartbeat(String username) {
+        User user = registeredUsers.get(username);
+        if (user != null) {
+            user.setLastHeartbeat(java.time.LocalDateTime.now());
+            // Optionally persist heartbeat timestamp
+            try {
+                PersistenceManager.saveUsers(registeredUsers);
+            } catch (Exception e) {
+                System.err.println("Warning: failed to persist users on heartbeat: " + e.getMessage());
+            }
+        }
     }
 
     // ============ Room Management ============
@@ -238,6 +336,19 @@ public class Server {
 
         room.addUser(username);
         System.out.println("User " + username + " added to room " + roomName);
+
+        // Notify room members about new user
+        try {
+            JsonObject event = new JsonObject();
+            event.addProperty("type", "SYSTEM");
+            event.addProperty("action", "USER_JOINED");
+            event.addProperty("room", roomName);
+            event.addProperty("user", username);
+            event.addProperty("timestamp", java.time.LocalDateTime.now().toString());
+            broadcastRoomEvent(roomName, event.toString());
+        } catch (Exception e) {
+            System.err.println("Warning: failed to broadcast join event: " + e.getMessage());
+        }
     }
 
     /**
@@ -273,6 +384,14 @@ public class Server {
         }
 
         room.addMessage(message);
+
+        // Persist room messages and room metadata after storing
+        try {
+            PersistenceManager.saveRoomMessages(room.getName(), room.getMessages());
+            PersistenceManager.saveRooms(rooms);
+        } catch (Exception e) {
+            System.err.println("Warning: failed to persist room messages: " + e.getMessage());
+        }
     }
 
     /**
@@ -292,6 +411,24 @@ public class Server {
                 if (handler != null) {
                     handler.sendMessage(messageJson);
                 }
+            }
+        }
+    }
+
+    /**
+     * Broadcasts a simple system event (JSON) to all users in a room.
+     *
+     * @param roomName the room name
+     * @param eventJson the event JSON string
+     */
+    public void broadcastRoomEvent(String roomName, String eventJson) {
+        Room room = getRoom(roomName);
+        if (room == null) return;
+
+        for (String username : room.getConnectedUsers()) {
+            ClientHandler handler = connectedClients.get(username);
+            if (handler != null) {
+                handler.sendMessage(eventJson);
             }
         }
     }
@@ -406,6 +543,9 @@ public class Server {
     public void shutdown() {
         System.out.println("Shutting down server...");
         try {
+            // Save all data to storage
+            saveData();
+
             // Disconnect all clients
             List<String> clientUsernames = new ArrayList<>(connectedClients.keySet());
             for (String username : clientUsernames) {
@@ -432,8 +572,20 @@ public class Server {
     // ============ Utility Methods ============
 
     private String convertMessageToJson(Message message) {
-        // This will be improved in protocol stage
-        return message.toString();
+        JsonObject json = new JsonObject();
+        if (message.getRoom() != null) {
+            json.addProperty("type", "ROOM_MESSAGE");
+            json.addProperty("room", message.getRoom());
+        } else {
+            json.addProperty("type", "PRIVATE_MESSAGE");
+            json.addProperty("receiver", message.getReceiver());
+        }
+
+        json.addProperty("sender", message.getSender());
+        json.addProperty("timestamp", message.getTimestamp().toString());
+        json.addProperty("content", message.getContent());
+
+        return gson.toJson(json);
     }
 
     /**

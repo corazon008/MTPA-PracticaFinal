@@ -172,6 +172,10 @@ public class ClientHandler implements Runnable {
 
     private void handleHeartbeat(ProtocolRequest request) {
         lastHeartbeat = System.currentTimeMillis();
+        // Update server-side user lastHeartbeat if authenticated
+        if (authenticated && username != null) {
+            server.updateUserHeartbeat(username);
+        }
         sendResponse(ProtocolResponse.ok("HEARTBEAT_ACK"));
     }
 
@@ -429,4 +433,3 @@ public class ClientHandler implements Runnable {
         System.out.println("ClientHandler cleanup completed for: " + username);
     }
 }
-
