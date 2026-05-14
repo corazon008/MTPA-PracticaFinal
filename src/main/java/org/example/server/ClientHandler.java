@@ -2,6 +2,8 @@ package org.example.server;
 
 import org.example.protocol.ProtocolRequest;
 import org.example.protocol.ProtocolResponse;
+import org.example.model.Message;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import java.io.*;
@@ -214,12 +216,14 @@ public class ClientHandler implements Runnable {
 
             server.addUserToRoom(username, roomName);
 
-            JsonObject notification = new JsonObject();
-            notification.addProperty("type", "USER_JOINED");
-            notification.addProperty("room", roomName);
-            notification.addProperty("user", username);
+            // Return the last-day room history immediately after join.
+            java.util.List<Message> recentMessages = server.getRoomMessagesFromLastDay(roomName);
+            JsonObject responseData = new JsonObject();
+            responseData.addProperty("room", roomName);
+            responseData.addProperty("count", recentMessages.size());
+            responseData.add("messages", toJsonMessages(recentMessages));
 
-            sendResponse(ProtocolResponse.ok("USER_IN_ROOM"));
+            sendResponse(ProtocolResponse.ok("USER_IN_ROOM", responseData));
         } catch (Exception e) {
             if (e.getMessage().equals("ROOM_NOT_FOUND")) {
                 sendResponse(ProtocolResponse.error("ROOM_NOT_FOUND"));
@@ -336,25 +340,22 @@ public class ClientHandler implements Runnable {
             String roomName = info.get("room").getAsString();
             String date = info.has("date") ? info.get("date").getAsString() : null;
 
-            org.example.model.Room room = server.getRoom(roomName);
-            if (room == null) {
-                sendResponse(ProtocolResponse.error("ROOM_NOT_FOUND"));
-                return;
-            }
-
-            java.util.List<org.example.model.Message> messages;
-            if (date != null) {
-                messages = room.getMessagesByDate(date);
-            } else {
-                messages = room.getMessagesFromLastDay();
-            }
+            java.util.List<Message> messages =
+                    (date != null) ? server.getRoomMessagesByDate(roomName, date)
+                                   : server.getRoomMessagesFromLastDay(roomName);
 
             JsonObject responseData = new JsonObject();
+            responseData.addProperty("room", roomName);
             responseData.addProperty("count", messages.size());
+            responseData.add("messages", toJsonMessages(messages));
 
             sendResponse(ProtocolResponse.ok("HISTORY_RETRIEVED", responseData));
         } catch (Exception e) {
-            sendResponse(ProtocolResponse.error("SERVER_ERROR"));
+            if (e.getMessage().equals("ROOM_NOT_FOUND")) {
+                sendResponse(ProtocolResponse.error("ROOM_NOT_FOUND"));
+            } else {
+                sendResponse(ProtocolResponse.error("SERVER_ERROR"));
+            }
         }
     }
 
@@ -407,6 +408,21 @@ public class ClientHandler implements Runnable {
      */
     public boolean isAuthenticated() {
         return authenticated;
+    }
+
+    private JsonArray toJsonMessages(java.util.List<Message> messages) {
+        JsonArray jsonMessages = new JsonArray();
+        for (Message message : messages) {
+            JsonObject jsonMessage = new JsonObject();
+            jsonMessage.addProperty("sender", message.getSender());
+            jsonMessage.addProperty("timestamp", message.getTimestamp().toString());
+            jsonMessage.addProperty("content", message.getContent());
+            if (message.getRoom() != null) {
+                jsonMessage.addProperty("room", message.getRoom());
+            }
+            jsonMessages.add(jsonMessage);
+        }
+        return jsonMessages;
     }
 
     /**

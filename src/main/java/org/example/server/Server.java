@@ -365,6 +365,37 @@ public class Server {
         }
     }
 
+    /**
+     * Gets messages from the last day for a room.
+     *
+     * @param roomName the room name
+     * @return list of messages from the last day
+     * @throws Exception if room does not exist
+     */
+    public List<Message> getRoomMessagesFromLastDay(String roomName) throws Exception {
+        Room room = rooms.get(roomName);
+        if (room == null) {
+            throw new Exception("ROOM_NOT_FOUND");
+        }
+        return room.getMessagesFromLastDay();
+    }
+
+    /**
+     * Gets messages from a specific date for a room.
+     *
+     * @param roomName the room name
+     * @param date date in yyyy-MM-dd format
+     * @return list of messages from the requested date
+     * @throws Exception if room does not exist
+     */
+    public List<Message> getRoomMessagesByDate(String roomName, String date) throws Exception {
+        Room room = rooms.get(roomName);
+        if (room == null) {
+            throw new Exception("ROOM_NOT_FOUND");
+        }
+        return room.getMessagesByDate(date);
+    }
+
     // ============ Message Handling ============
 
     /**
