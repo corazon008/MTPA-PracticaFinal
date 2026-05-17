@@ -414,6 +414,11 @@ public class Server {
             throw new Exception("ROOM_NOT_FOUND");
         }
 
+        // Ensure sender is currently in the room
+        if (!room.hasUser(message.getSender())) {
+            throw new Exception("NOT_IN_ROOM");
+        }
+
         room.addMessage(message);
 
         // Persist room messages and room metadata after storing
@@ -471,6 +476,11 @@ public class Server {
      * @throws Exception if receiver is not connected
      */
     public void sendPrivateMessage(Message message) throws Exception {
+        // Validate message length for private messages as well
+        if (!message.isValid()) {
+            throw new Exception("MESSAGE_TOO_LONG");
+        }
+
         ClientHandler receiverHandler = connectedClients.get(message.getReceiver());
         if (receiverHandler == null) {
             throw new Exception("USER_NOT_CONNECTED");
