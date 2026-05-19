@@ -15,7 +15,12 @@ import java.util.*;
  * Manages loading and saving of users, rooms, and messages.
  */
 public class PersistenceManager {
-    private static final String DATA_DIR = "data";
+    /**
+     * Base directory used for persistence. Defaults to the `data` folder but can be
+     * overridden at runtime by setting the system property `persistence.dir` or by
+     * calling {@link #setDataDir(String)} from tests.
+     */
+    private static String DATA_DIR = System.getProperty("persistence.dir", "data");
     private static final String USERS_FILE = "users.json";
     private static final String ROOMS_FILE = "rooms.json";
     private static final String MESSAGES_DIR = "messages";
@@ -32,6 +37,16 @@ public class PersistenceManager {
         } catch (IOException e) {
             System.err.println("Error initializing persistence: " + e.getMessage());
         }
+    }
+
+    /**
+     * Allows tests to override the persistence directory programmatically so the
+     * test-suite can remain isolated from developer data.
+     *
+     * Note: call this before any other PersistenceManager methods in tests.
+     */
+    public static void setDataDir(String dataDir) {
+        DATA_DIR = dataDir;
     }
 
     /**

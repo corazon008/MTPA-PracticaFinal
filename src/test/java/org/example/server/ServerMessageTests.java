@@ -2,6 +2,7 @@ package org.example.server;
 
 import org.example.model.Message;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.io.BufferedReader;
@@ -13,6 +14,13 @@ import java.net.Socket;
  * Unit tests for server message handling and routing.
  */
 public class ServerMessageTests {
+
+    @Before
+    public void setup() {
+        String dir = "target/test-data/ServerMessageTests";
+        org.example.persistence.PersistenceManager.setDataDir(dir);
+        org.example.persistence.PersistenceManager.initialize();
+    }
 
     @Test
     public void testMessageTooLongThrows() throws Exception {

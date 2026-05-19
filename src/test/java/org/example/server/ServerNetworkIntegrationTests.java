@@ -3,6 +3,7 @@ package org.example.server;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.io.BufferedReader;
@@ -18,6 +19,13 @@ import java.util.concurrent.atomic.AtomicReference;
  * Network-focused tests that exercise the real socket protocol handled by ClientHandler.
  */
 public class ServerNetworkIntegrationTests {
+
+    @Before
+    public void setup() {
+        String dir = "target/test-data/ServerNetworkIntegrationTests";
+        org.example.persistence.PersistenceManager.setDataDir(dir);
+        org.example.persistence.PersistenceManager.initialize();
+    }
 
     @Test
     public void testUnauthenticatedRequestReturnsNotAuthenticated() throws Exception {

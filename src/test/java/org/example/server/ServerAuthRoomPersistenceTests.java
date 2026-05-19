@@ -4,6 +4,7 @@ import org.example.model.User;
 import org.example.model.Room;
 import org.example.persistence.PersistenceManager;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.util.HashMap;
@@ -11,6 +12,12 @@ import java.util.Map;
 
 public class ServerAuthRoomPersistenceTests {
 
+    @Before
+    public void setup() {
+        String dir = "target/test-data/ServerAuthRoomPersistenceTests";
+        PersistenceManager.setDataDir(dir);
+        PersistenceManager.initialize();
+    }
     @Test
     public void testRegisterAndLoginSuccess() throws Exception {
         Server server = new Server();
