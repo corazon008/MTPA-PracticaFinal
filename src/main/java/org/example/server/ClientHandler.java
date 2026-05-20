@@ -9,6 +9,7 @@ import com.google.gson.JsonObject;
 import java.io.*;
 import java.net.Socket;
 import java.net.SocketException;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Handles communication with a single client.
@@ -37,9 +38,9 @@ public class ClientHandler implements Runnable {
 
         try {
             input = new BufferedReader(
-                    new InputStreamReader(socket.getInputStream(), "UTF-8"));
+                    new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
             output = new PrintWriter(
-                    new OutputStreamWriter(socket.getOutputStream(), "UTF-8"), true);
+                    new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8), true);
         } catch (IOException e) {
             System.err.println("Error setting up client streams: " + e.getMessage());
             closeConnection();
@@ -381,6 +382,13 @@ public class ClientHandler implements Runnable {
             output.println(messageJson);
             output.flush();
         }
+    }
+
+    /**
+     * Closes the underlying socket from server-side administration code.
+     */
+    public void closeSocket() {
+        closeConnection();
     }
 
     /**

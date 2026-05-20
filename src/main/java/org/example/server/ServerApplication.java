@@ -1,15 +1,21 @@
 package org.example.server;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Scanner;
+import java.util.Properties;
 
 /**
  * Main entry point for the messaging server application.
  * Provides both server network operations and admin console interface.
  */
 public class ServerApplication {
-    private Server server;
+    private final Server server;
     private static final int DEFAULT_PORT = 5000;
+    private static final String DEFAULT_CONFIG_FILE = "server.properties";
     private volatile boolean running;
 
     /**
@@ -88,6 +94,15 @@ public class ServerApplication {
             case "list_clients":
                 listConnectedClients();
                 break;
+            case "kick":
+                kickClient(parts);
+                break;
+            case "broadcast":
+                broadcastMessage(parts);
+                break;
+            case "metrics":
+                exportMetrics();
+                break;
             case "stop_accept":
                 stopAcceptingClients();
                 break;
@@ -119,6 +134,9 @@ public class ServerApplication {
         System.out.println("help              - Display this help message");
         System.out.println("stats             - Display server statistics");
         System.out.println("list_clients      - List all connected clients");
+        System.out.println("kick <user>       - Disconnect a connected client");
+        System.out.println("broadcast <msg>   - Send an admin broadcast to all connected clients");
+        System.out.println("metrics           - Export a metrics snapshot to file");
         System.out.println("users             - List all registered users");
         System.out.println("stop_accept       - Stop accepting new client connections");
         System.out.println("start_accept      - Start accepting new client connections");
@@ -133,13 +151,13 @@ public class ServerApplication {
      */
     private void printStats() {
         java.util.Map<String, Object> stats = server.getStatistics();
+        server.exportMetrics();
 
         System.out.println("\n=== Server Statistics ===");
         System.out.println("Registered Users: " + stats.get("registered_users"));
         System.out.println("Connected Users: " + stats.get("connected_users"));
         System.out.println("Total Rooms: " + stats.get("total_rooms"));
 
-        @SuppressWarnings("unchecked")
         java.util.Map<String, Integer> roomUsers =
                 (java.util.Map<String, Integer>) stats.get("room_user_counts");
         System.out.println("\nUsers per Room:");
@@ -147,7 +165,6 @@ public class ServerApplication {
             System.out.println("  " + entry.getKey() + ": " + entry.getValue());
         }
 
-        @SuppressWarnings("unchecked")
         java.util.Map<String, Long> roomMessages =
                 (java.util.Map<String, Long>) stats.get("room_message_counts");
         System.out.println("\nMessages per Room:");
@@ -155,6 +172,49 @@ public class ServerApplication {
             System.out.println("  " + entry.getKey() + ": " + entry.getValue());
         }
         System.out.println();
+    }
+
+    /**
+     * Kicks a connected client from the admin console.
+     *
+     * @param parts split command and arguments
+     */
+    private void kickClient(String[] parts) {
+        if (parts.length < 2 || parts[1].trim().isEmpty()) {
+            System.out.println("Usage: kick <username>\n");
+            return;
+        }
+
+        String username = parts[1].trim();
+        boolean kicked = server.kickClient(username);
+        if (kicked) {
+            System.out.println("Client kicked: " + username + "\n");
+        } else {
+            System.out.println("Client not connected: " + username + "\n");
+        }
+    }
+
+    /**
+     * Broadcasts a message to all connected clients.
+     *
+     * @param parts split command and arguments
+     */
+    private void broadcastMessage(String[] parts) {
+        if (parts.length < 2 || parts[1].trim().isEmpty()) {
+            System.out.println("Usage: broadcast <message>\n");
+            return;
+        }
+
+        server.broadcastAdminMessage(parts[1].trim());
+        System.out.println("Broadcast sent to connected clients\n");
+    }
+
+    /**
+     * Exports a metrics snapshot to the configured metrics file.
+     */
+    private void exportMetrics() {
+        Path metricsFile = server.exportMetrics();
+        System.out.println("Metrics exported to: " + metricsFile.toAbsolutePath() + "\n");
     }
 
     /**
@@ -238,7 +298,8 @@ public class ServerApplication {
      * @param args command line arguments (optional: port number)
      */
     public static void main(String[] args) {
-        int port = DEFAULT_PORT;
+        loadConfiguration();
+        int port = Integer.getInteger("server.port", DEFAULT_PORT);
 
         if (args.length > 0) {
             try {
@@ -259,6 +320,31 @@ public class ServerApplication {
 
         ServerApplication app = new ServerApplication();
         app.start(port);
+    }
+
+    /**
+     * Loads optional configuration from a properties file into system properties.
+     */
+    private static void loadConfiguration() {
+        String configPath = System.getProperty("server.config", DEFAULT_CONFIG_FILE);
+        Path path = Paths.get(configPath);
+        if (!Files.exists(path)) {
+            return;
+        }
+
+        Properties properties = new Properties();
+        try (InputStream inputStream = Files.newInputStream(path)) {
+            properties.load(inputStream);
+            for (String name : properties.stringPropertyNames()) {
+                if (System.getProperty(name) == null) {
+                    System.setProperty(name, properties.getProperty(name));
+                }
+            }
+            System.out.println("Loaded server configuration from " + path.toAbsolutePath());
+        } catch (IOException e) {
+            System.err.println("Unable to load server configuration from " + path.toAbsolutePath()
+                    + ": " + e.getMessage());
+        }
     }
 }
 

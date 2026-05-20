@@ -9,24 +9,36 @@ import com.google.gson.*;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.logging.FileHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 /**
  * Main server class managing the messaging system.
  * Handles client connections, room management, and message routing.
  */
 public class Server {
-    private static final int DEFAULT_PORT = 5000;
     private static final int MAX_CLIENTS = 100;
     private static final long HEARTBEAT_TIMEOUT_MINUTES = 5;
     private static final long HEARTBEAT_CHECK_INTERVAL_MINUTES = 1;
+    private static final String DEFAULT_LOG_DIR = "target/logs";
+    private static final String DEFAULT_METRICS_FILE = "target/metrics/server-metrics.txt";
+    private static final Logger LOGGER = Logger.getLogger(Server.class.getName());
+    private static final Object LOGGING_LOCK = new Object();
+    private static volatile boolean loggingConfigured = false;
 
     private ServerSocket serverSocket;
-    private ExecutorService clientThreadPool;
-    private Map<String, User> registeredUsers;
-    private Map<String, ClientHandler> connectedClients;
-    private Map<String, Room> rooms;
+    private final ExecutorService clientThreadPool;
+    private final Map<String, User> registeredUsers;
+    private final Map<String, ClientHandler> connectedClients;
+    private final Map<String, Room> rooms;
     private static final Gson gson = new GsonBuilder().create();
     private volatile boolean acceptingClients;
     private volatile boolean maintenanceMode;
@@ -36,6 +48,7 @@ public class Server {
      * Constructs a new Server instance.
      */
     public Server() {
+        configureLogging();
         this.registeredUsers = Collections.synchronizedMap(new LinkedHashMap<>());
         this.connectedClients = Collections.synchronizedMap(new ConcurrentHashMap<>());
         this.rooms = Collections.synchronizedMap(new LinkedHashMap<>());
@@ -48,6 +61,36 @@ public class Server {
 
         // Load data from storage
         loadStoredData();
+    }
+
+    private static void configureLogging() {
+        synchronized (LOGGING_LOCK) {
+            if (loggingConfigured) {
+                return;
+            }
+
+            try {
+                Path logDir = Paths.get(System.getProperty("server.log.dir", DEFAULT_LOG_DIR));
+                Files.createDirectories(logDir);
+
+                int limitBytes = Integer.getInteger("server.log.limit.bytes", 1_000_000);
+                int fileCount = Integer.getInteger("server.log.file.count", 5);
+                FileHandler handler = new FileHandler(
+                        logDir.resolve("server-%g.log").toString(),
+                        limitBytes,
+                        fileCount,
+                        true);
+                handler.setEncoding(StandardCharsets.UTF_8.name());
+                handler.setFormatter(new SimpleFormatter());
+
+                LOGGER.addHandler(handler);
+                LOGGER.setLevel(Level.INFO);
+                LOGGER.setUseParentHandlers(false);
+                loggingConfigured = true;
+            } catch (IOException e) {
+                System.err.println("Warning: failed to initialize server logging: " + e.getMessage());
+            }
+        }
     }
 
     /**
@@ -90,6 +133,8 @@ public class Server {
 
         System.out.println("Data loaded from storage: " + registeredUsers.size() + " users, " +
                 rooms.size() + " rooms");
+        LOGGER.info("Data loaded from storage: " + registeredUsers.size() + " users, " +
+                rooms.size() + " rooms");
     }
 
     /**
@@ -102,6 +147,7 @@ public class Server {
             PersistenceManager.saveRoomMessages(room.getName(), room.getMessages());
         }
         System.out.println("Data saved to storage");
+        LOGGER.info("Data saved to storage");
     }
 
     /**
@@ -114,6 +160,8 @@ public class Server {
         serverSocket = new ServerSocket(port);
         System.out.println("Server started on port " + port);
         System.out.println("Predefined rooms initialized: " + rooms.keySet());
+        LOGGER.info("Server started on port " + port);
+        LOGGER.info("Predefined rooms initialized: " + rooms.keySet());
 
         // Start heartbeat monitoring thread
         startHeartbeatMonitor();
@@ -131,9 +179,11 @@ public class Server {
                 ClientHandler handler = new ClientHandler(clientSocket, this);
                 clientThreadPool.execute(handler);
                 System.out.println("New client connection accepted");
+                LOGGER.info("New client connection accepted");
             } catch (IOException e) {
                 if (!serverSocket.isClosed()) {
                     System.err.println("Error accepting client: " + e.getMessage());
+                    LOGGER.log(Level.WARNING, "Error accepting client", e);
                 }
             }
         }
@@ -183,6 +233,7 @@ public class Server {
 
         for (String username : timedOutClients) {
             System.out.println("Client timeout: " + username);
+            LOGGER.warning("Client timeout: " + username);
             disconnectClient(username);
         }
     }
@@ -210,7 +261,10 @@ public class Server {
             PersistenceManager.saveUsers(registeredUsers);
         } catch (Exception e) {
             System.err.println("Warning: failed to persist users after register: " + e.getMessage());
+            LOGGER.log(Level.WARNING, "failed to persist users after register", e);
         }
+
+        LOGGER.info("User registered: " + username);
 
         return key;
     }
@@ -229,6 +283,8 @@ public class Server {
             throw new Exception("INVALID_CREDENTIALS");
         }
 
+        LOGGER.info("User authenticated: " + username);
+
         return user;
     }
 
@@ -246,12 +302,14 @@ public class Server {
             user.setLastHeartbeat(java.time.LocalDateTime.now());
         }
         System.out.println("User connected: " + username);
+        LOGGER.info("User connected: " + username);
 
         // Persist user connection state (optional but useful for audits)
         try {
             PersistenceManager.saveUsers(registeredUsers);
         } catch (Exception e) {
             System.err.println("Warning: failed to persist users on connect: " + e.getMessage());
+            LOGGER.log(Level.WARNING, "failed to persist users on connect", e);
         }
     }
 
@@ -273,12 +331,14 @@ public class Server {
         }
 
         System.out.println("User disconnected: " + username);
+        LOGGER.info("User disconnected: " + username);
 
         // Persist user connection state change
         try {
             PersistenceManager.saveUsers(registeredUsers);
         } catch (Exception e) {
             System.err.println("Warning: failed to persist users on disconnect: " + e.getMessage());
+            LOGGER.log(Level.WARNING, "failed to persist users on disconnect", e);
         }
     }
 
@@ -296,6 +356,7 @@ public class Server {
                 PersistenceManager.saveUsers(registeredUsers);
             } catch (Exception e) {
                 System.err.println("Warning: failed to persist users on heartbeat: " + e.getMessage());
+                LOGGER.log(Level.WARNING, "failed to persist users on heartbeat", e);
             }
         }
     }
@@ -336,6 +397,7 @@ public class Server {
 
         room.addUser(username);
         System.out.println("User " + username + " added to room " + roomName);
+        LOGGER.info("User " + username + " added to room " + roomName);
 
         // Notify room members about new user
         try {
@@ -362,6 +424,7 @@ public class Server {
         if (room != null) {
             room.removeUser(username);
             System.out.println("User " + username + " removed from room " + roomName);
+            LOGGER.info("User " + username + " removed from room " + roomName);
         }
     }
 
@@ -427,7 +490,10 @@ public class Server {
             PersistenceManager.saveRooms(rooms);
         } catch (Exception e) {
             System.err.println("Warning: failed to persist room messages: " + e.getMessage());
+            LOGGER.log(Level.WARNING, "failed to persist room messages", e);
         }
+
+        LOGGER.info("Stored room message in " + room.getName() + " from " + message.getSender());
     }
 
     /**
@@ -442,13 +508,13 @@ public class Server {
 
         String messageJson = convertMessageToJson(message);
         for (String username : room.getConnectedUsers()) {
-            if (!username.equals(senderUsername) || true) { // Send to all including sender for confirmation
-                ClientHandler handler = connectedClients.get(username);
-                if (handler != null) {
-                    handler.sendMessage(messageJson);
-                }
+            ClientHandler handler = connectedClients.get(username);
+            if (handler != null) {
+                handler.sendMessage(messageJson);
             }
         }
+
+        LOGGER.info("Broadcasted room message to " + room.getName() + " from " + senderUsername);
     }
 
     /**
@@ -467,6 +533,8 @@ public class Server {
                 handler.sendMessage(eventJson);
             }
         }
+
+        LOGGER.info("Broadcasted room event to " + roomName);
     }
 
     /**
@@ -488,6 +556,46 @@ public class Server {
 
         String messageJson = convertMessageToJson(message);
         receiverHandler.sendMessage(messageJson);
+        LOGGER.info("Sent private message from " + message.getSender() + " to " + message.getReceiver());
+    }
+
+    /**
+     * Broadcasts a server-wide administrative message to all connected clients.
+     *
+     * @param content the broadcast content
+     */
+    public void broadcastAdminMessage(String content) {
+        JsonObject event = new JsonObject();
+        event.addProperty("type", "ADMIN_BROADCAST");
+        event.addProperty("content", content);
+        event.addProperty("timestamp", java.time.LocalDateTime.now().toString());
+
+        String payload = gson.toJson(event);
+        for (ClientHandler handler : new ArrayList<>(connectedClients.values())) {
+            if (handler != null) {
+                handler.sendMessage(payload);
+            }
+        }
+
+        LOGGER.info("Admin broadcast sent: " + content);
+    }
+
+    /**
+     * Kicks a connected client from the server.
+     *
+     * @param username the username to disconnect
+     * @return true if a client was kicked, false otherwise
+     */
+    public synchronized boolean kickClient(String username) {
+        ClientHandler handler = connectedClients.get(username);
+        if (handler == null) {
+            return false;
+        }
+
+        handler.closeSocket();
+        disconnectClient(username);
+        LOGGER.info("Admin kicked client: " + username);
+        return true;
     }
 
     /**
@@ -563,6 +671,8 @@ public class Server {
         stats.put("registered_users", registeredUsers.size());
         stats.put("connected_users", connectedClients.size());
         stats.put("total_rooms", rooms.size());
+        stats.put("accepting_clients", acceptingClients);
+        stats.put("maintenance_mode", maintenanceMode);
 
         Map<String, Integer> roomStats = new LinkedHashMap<>();
         Map<String, Long> roomMessageCounts = new LinkedHashMap<>();
@@ -579,6 +689,49 @@ public class Server {
     }
 
     /**
+     * Writes a metrics snapshot to the configured metrics file.
+     *
+     * @return the path to the metrics file
+     */
+    public synchronized Path exportMetrics() {
+        Path metricsPath = Paths.get(System.getProperty("server.metrics.file", DEFAULT_METRICS_FILE));
+
+        try {
+            if (metricsPath.getParent() != null) {
+                Files.createDirectories(metricsPath.getParent());
+            }
+
+            Map<String, Object> stats = getStatistics();
+            StringBuilder builder = new StringBuilder();
+            builder.append("timestamp=").append(java.time.LocalDateTime.now()).append('\n');
+            builder.append("registered_users=").append(stats.get("registered_users")).append('\n');
+            builder.append("connected_users=").append(stats.get("connected_users")).append('\n');
+            builder.append("total_rooms=").append(stats.get("total_rooms")).append('\n');
+            builder.append("accepting_clients=").append(stats.get("accepting_clients")).append('\n');
+            builder.append("maintenance_mode=").append(stats.get("maintenance_mode")).append('\n');
+
+            Map<String, Integer> roomUsers = (Map<String, Integer>) stats.get("room_user_counts");
+            builder.append("room_user_counts=").append(roomUsers).append('\n');
+
+            Map<String, Long> roomMessages = (Map<String, Long>) stats.get("room_message_counts");
+            builder.append("room_message_counts=").append(roomMessages).append('\n');
+
+            Files.writeString(
+                    metricsPath,
+                    builder.toString(),
+                    StandardCharsets.UTF_8,
+                    java.nio.file.StandardOpenOption.CREATE,
+                    java.nio.file.StandardOpenOption.TRUNCATE_EXISTING,
+                    java.nio.file.StandardOpenOption.WRITE);
+            LOGGER.info("Metrics exported to " + metricsPath.toAbsolutePath());
+        } catch (IOException e) {
+            LOGGER.log(Level.WARNING, "Failed to export metrics", e);
+        }
+
+        return metricsPath;
+    }
+
+    /**
      * Shuts down the server gracefully.
      */
     public void shutdown() {
@@ -586,6 +739,7 @@ public class Server {
         try {
             // Save all data to storage
             saveData();
+            exportMetrics();
 
             // Disconnect all clients
             List<String> clientUsernames = new ArrayList<>(connectedClients.keySet());
@@ -605,8 +759,10 @@ public class Server {
             }
 
             System.out.println("Server shutdown complete");
+            LOGGER.info("Server shutdown complete");
         } catch (IOException | InterruptedException e) {
             System.err.println("Error during shutdown: " + e.getMessage());
+            LOGGER.log(Level.WARNING, "Error during shutdown", e);
         }
     }
 
