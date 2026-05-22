@@ -7,8 +7,7 @@ import java.time.LocalDateTime;
  * Represents a user in the messaging system.
  * Each user has a unique username and an auto-generated numeric key for authentication.
  */
-public class User implements Serializable {
-    private static final long serialVersionUID = 1L;
+public class User {
 
     private String username;
     private long key;
@@ -20,7 +19,7 @@ public class User implements Serializable {
      * Constructs a new User.
      *
      * @param username The unique username
-     * @param key The auto-generated numeric key for authentication
+     * @param key      The auto-generated numeric key for authentication
      */
     public User(String username, long key) {
         this.username = username;

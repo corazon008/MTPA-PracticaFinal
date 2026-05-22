@@ -7,8 +7,7 @@ import java.time.LocalDateTime;
  * Represents a message in the system.
  * Messages can be sent to a room or as private messages between users.
  */
-public class Message implements Serializable {
-    private static final long serialVersionUID = 1L;
+public class Message {
 
     private static final int MAX_MESSAGE_LENGTH = 190;
 
@@ -21,9 +20,9 @@ public class Message implements Serializable {
     /**
      * Constructs a new Message.
      *
-     * @param sender The username of the sender
-     * @param content The message content
-     * @param room The room name (null for private messages)
+     * @param sender   The username of the sender
+     * @param content  The message content
+     * @param room     The room name (null for private messages)
      * @param receiver The receiver username (null for room messages)
      */
     public Message(String sender, String content, String room, String receiver) {

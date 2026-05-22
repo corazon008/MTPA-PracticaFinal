@@ -8,9 +8,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * Represents a chat room in the messaging system.
  * Each room has a name, list of connected users, and message history.
  */
-public class Room implements Serializable {
-    private static final long serialVersionUID = 1L;
-
+public class Room {
     private String name;
     private List<Message> messages;
     private Set<String> connectedUsers;
