@@ -1,0 +1,10 @@
+# Sample configuration for the server
+# Copy this file to server.properties or launch with -Dserver.config=/path/to/file
+
+server.port=5000
+persistence.dir=data
+server.log.dir=target/logs
+server.log.limit.bytes=1000000
+server.log.file.count=5
+server.metrics.file=target/metrics/server-metrics.txt
+
