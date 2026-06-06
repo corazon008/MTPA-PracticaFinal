@@ -267,7 +267,7 @@ public class ChatController {
 
     private void handleErrorResponse(JsonObject response) {
         String errorMessage = response.get("message").getAsString();
-        Component parent = session.isAuthenticated() ? mainChatFrame : loginFrame;
+        JFrame parent = session.isAuthenticated() ? mainChatFrame : loginFrame;
 
         String translatedError = translateServerError(errorMessage);
         NotificationUtils.showErrorNotification(parent, translatedError);
