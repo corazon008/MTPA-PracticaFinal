@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import org.example.client.model.ClientSession;
+import org.example.client.network.HeartbeatSender;
 import org.example.client.network.ServerConnection;
 import org.example.client.view.LoginFrame;
 import org.example.client.view.MainChatFrame;
@@ -25,6 +26,7 @@ public class ChatController {
     private final LoginFrame loginFrame;
     private final MainChatFrame mainChatFrame;
     private final Map<String, PrivateChatFrame> privateChats;
+    private HeartbeatSender heartbeatSender;
 
     public ChatController(ServerConnection connection, ClientSession session, LoginFrame loginFrame, MainChatFrame mainChatFrame) {
         this.connection = connection;
@@ -34,6 +36,18 @@ public class ChatController {
         this.privateChats = new HashMap<>();
 
         setupViewListeners();
+
+        // Intentar conectar al servidor local en el puerto 5000
+        boolean isConnected = connection.connect(
+                "127.0.0.1",
+                5000,
+                this::processServerMessage, // Redirige les messages entrants vers votre méthode de traitement
+                () -> NotificationUtils.showErrorNotification(loginFrame, "Se ha perdido la conexión con el servidor.")
+        );
+
+        if (!isConnected) {
+            NotificationUtils.showErrorNotification(loginFrame, "No se pudo conectar al servidor (127.0.0.1:5000).");
+        }
     }
 
     /**
@@ -226,7 +240,8 @@ public class ChatController {
                 loginFrame.setVisible(false);
                 mainChatFrame.setVisible(true);
                 handleRoomChange(); // Join the default selected room immediately
-                // TODO: Start HeartbeatSender here
+                heartbeatSender = new HeartbeatSender(connection);
+                heartbeatSender.start();
                 break;
             case "USER_IN_ROOM":
             case "HISTORY_RETRIEVED":
