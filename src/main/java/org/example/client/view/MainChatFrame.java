@@ -1,10 +1,7 @@
 package org.example.client.view;
 
 import javax.swing.*;
-import javax.swing.text.AbstractDocument;
-import javax.swing.text.AttributeSet;
-import javax.swing.text.BadLocationException;
-import javax.swing.text.DocumentFilter;
+import javax.swing.text.*;
 import java.awt.*;
 import java.awt.event.ActionListener;
 
@@ -14,7 +11,7 @@ import java.awt.event.ActionListener;
  */
 public class MainChatFrame extends JFrame {
     private JList<String> roomList;
-    private JTextArea chatArea;
+    private JTextPane chatPane;
     private JTextField messageInput;
     private JButton sendButton;
     private JLabel charCountLabel;
@@ -32,7 +29,6 @@ public class MainChatFrame extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
-        // Main layout definition
         setLayout(new BorderLayout(5, 5));
 
         // Left Panel: Predefined Rooms and Private Chat Triggers
@@ -45,7 +41,6 @@ public class MainChatFrame extends JFrame {
         roomList.setSelectedIndex(0);
         leftPanel.add(new JScrollPane(roomList), BorderLayout.CENTER);
 
-        // Subsection for launching 1-to-1 private messages
         JPanel privatePanel = new JPanel(new GridLayout(3, 1, 5, 5));
         privatePanel.setBorder(BorderFactory.createTitledBorder("Mensaje Privado"));
         privateUserInput = new JTextField();
@@ -60,7 +55,6 @@ public class MainChatFrame extends JFrame {
         // Center Panel: Chat History and Message Display Area
         JPanel centerPanel = new JPanel(new BorderLayout(5, 5));
 
-        // Upper bar for historical messages queries
         JPanel historyPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         historyPanel.add(new JLabel("Buscar por fecha (AAAA-MM-DD):"));
         dateInput = new JTextField(10);
@@ -69,18 +63,15 @@ public class MainChatFrame extends JFrame {
         historyPanel.add(loadHistoryButton);
         centerPanel.add(historyPanel, BorderLayout.NORTH);
 
-        // Scrollable message display log
-        chatArea = new JTextArea();
-        chatArea.setEditable(false);
-        chatArea.setLineWrap(true);
-        chatArea.setWrapStyleWord(true);
-        centerPanel.add(new JScrollPane(chatArea), BorderLayout.CENTER);
+        // Scrollable message display log using JTextPane for rich text
+        chatPane = new JTextPane();
+        chatPane.setEditable(false);
+        centerPanel.add(new JScrollPane(chatPane), BorderLayout.CENTER);
 
         // Bottom Panel: Message composition and length validation
         JPanel bottomPanel = new JPanel(new BorderLayout(5, 5));
         messageInput = new JTextField();
 
-        // DocumentFilter implementation to enforce the strict 190 characters rule
         AbstractDocument messageDocument = (AbstractDocument) messageInput.getDocument();
         messageDocument.setDocumentFilter(new DocumentFilter() {
             @Override
@@ -114,7 +105,6 @@ public class MainChatFrame extends JFrame {
 
         bottomPanel.add(messageInput, BorderLayout.CENTER);
 
-        // Action panel with character counter and send button
         JPanel actionsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         charCountLabel = new JLabel("0 / 190");
         actionsPanel.add(charCountLabel);
@@ -126,15 +116,11 @@ public class MainChatFrame extends JFrame {
         add(centerPanel, BorderLayout.CENTER);
     }
 
-    /**
-     * Updates the dynamic counter label based on input length.
-     */
     private void updateCharCount() {
         int length = messageInput.getText().length();
         charCountLabel.setText(length + " / 190");
     }
 
-    // Interaction Data Getters
     public String getSelectedRoom() {
         return roomList.getSelectedValue();
     }
@@ -151,25 +137,56 @@ public class MainChatFrame extends JFrame {
         return privateUserInput.getText().trim();
     }
 
-    // UI State Manipulators
     public void clearMessageInput() {
         messageInput.setText("");
         charCountLabel.setText("0 / 190");
     }
 
-    public void appendMessage(String message) {
-        chatArea.append(message + "\n");
-        chatArea.setCaretPosition(chatArea.getDocument().getLength());
-    }
-
     public void clearChatArea() {
-        chatArea.setText("");
+        chatPane.setText("");
     }
 
-    // Controller Action Listeners Wiring
+    /**
+     * Appends a standard user message to the chat in regular font.
+     *
+     * @param message The standard message to display
+     */
+    public void appendMessage(String message) {
+        appendToPane(message + "\n", Color.BLACK, false, 12);
+    }
+
+    /**
+     * Appends a system notification in a discreet, Discord-like style.
+     * Uses gray color, italics, and a slightly smaller font.
+     *
+     * @param message The system event to display
+     */
+    public void appendSystemMessage(String message) {
+        appendToPane(" -> " + message + "\n", Color.GRAY, true, 11);
+    }
+
+    /**
+     * Helper method to insert styled text at the end of the JTextPane document.
+     */
+    private void appendToPane(String msg, Color color, boolean italic, int fontSize) {
+        StyledDocument doc = chatPane.getStyledDocument();
+        SimpleAttributeSet style = new SimpleAttributeSet();
+        StyleConstants.setForeground(style, color);
+        StyleConstants.setItalic(style, italic);
+        StyleConstants.setFontSize(style, fontSize);
+
+        try {
+            doc.insertString(doc.getLength(), msg, style);
+            // Auto-scroll to the bottom as new messages arrive
+            chatPane.setCaretPosition(doc.getLength());
+        } catch (BadLocationException e) {
+            System.err.println("Error appending text to chat: " + e.getMessage());
+        }
+    }
+
     public void addSendButtonListener(ActionListener listener) {
         sendButton.addActionListener(listener);
-        messageInput.addActionListener(listener); // Allows hitting enter to send
+        messageInput.addActionListener(listener);
     }
 
     public void addRoomSelectionListener(javax.swing.event.ListSelectionListener listener) {
