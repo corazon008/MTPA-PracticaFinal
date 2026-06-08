@@ -13,6 +13,7 @@ CONFIG_FILE="${SERVER_CONFIG:-$ROOT/server.properties}"
 MVN_ARGS=(
   -q
   -DskipTests
+  "-Dexec.mainClass=org.example.server.ServerApplication"
   "-Dexec.args=$PORT"
   "-Dpersistence.dir=$DATA_DIR"
   "-Dserver.log.dir=$LOG_DIR"

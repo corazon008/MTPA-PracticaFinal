@@ -9,7 +9,7 @@ A real-time messaging system with a Java server and Swing GUI client.
 ## Requirements
 
 - **Java**: JDK 24+
-- **Maven**: 3.6+
+- **Maven**: 3.9+
 
 ---
 
@@ -18,7 +18,7 @@ A real-time messaging system with a Java server and Swing GUI client.
 ### 1. Start the Server
 
 ```bash
-mvn -Dexec.mainClass=org.example.server.ServerApplication exec:java
+./run-server.sh
 ```
 
 Or from IntelliJ: Right-click `src/main/java/org/example/server/ServerApplication.java` → Run
@@ -28,7 +28,7 @@ Or from IntelliJ: Right-click `src/main/java/org/example/server/ServerApplicatio
 ### 2. Start the Client
 
 ```bash
-mvn -Dexec.mainClass=org.example.client.ClientApplication exec:java
+./run-client.sh
 ```
 
 Or from IntelliJ: Right-click `src/main/java/org/example/client/ClientApplication.java` → Run
