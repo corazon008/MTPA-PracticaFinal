@@ -1,36 +1,66 @@
 # MTPA-PracticaFinal
-Corentin CALVEZ - Lubin TERRIEN
 
-## Server launch
+A real-time messaging system with a Java server and Swing GUI client.
 
-The server can be started with the helper script:
+**Authors**: Corentin CALVEZ, Lubin TERRIEN  
+
+---
+
+## Requirements
+
+- **Java**: JDK 24+
+- **Maven**: 3.6+
+
+---
+
+## Running the Application
+
+### 1. Start the Server
 
 ```bash
-./run-server.sh
+mvn -Dexec.mainClass=org.example.server.ServerApplication exec:java
 ```
 
-The script initializes the data/log/metrics directories, then launches the Maven exec entry point.
+Or from IntelliJ: Right-click `src/main/java/org/example/server/ServerApplication.java` → Run
 
-## Configuration
+**Default port**: 5000
 
-The server reads an optional properties file. By default it looks for `server.properties` in the project root.
-You can also point to another file with:
+### 2. Start the Client
 
 ```bash
-SERVER_CONFIG=/path/to/server.properties ./run-server.sh
+mvn -Dexec.mainClass=org.example.client.ClientApplication exec:java
 ```
 
-Supported properties:
+Or from IntelliJ: Right-click `src/main/java/org/example/client/ClientApplication.java` → Run
 
-- `server.port` - listening port for the server
-- `persistence.dir` - base directory for JSON persistence files
-- `server.log.dir` - directory used for rolling server logs
-- `server.log.limit.bytes` - per-log-file size before rollover
-- `server.log.file.count` - number of rotated log files to keep
-- `server.metrics.file` - output file for the metrics snapshot
 
-## Files
+---
 
-- `run-server.sh` - starts the server through Maven
-- `init-server-data.sh` - creates the required data/log/metrics folders
-- `server.properties.example` - sample configuration file
+## Quick Start
+
+1. **Register**: Enter a username and click "Registrarse"
+2. **Login**: Use the username and the generated access key
+3. **Chat in Rooms**: Select a room and send messages
+4. **Private Chat**: Enter a username in "Nombre del usuario" and click "Iniciar Chat Privado"
+
+---
+
+## Tests
+
+Run all tests:
+```bash
+mvn test
+```
+
+
+---
+
+## Features
+
+- User registration and authentication
+- Public chat in predefined rooms
+- Private messaging with user verification
+- Message history with date search
+- 190 character limit per message
+- Server admin console
+- Automatic heartbeat (connection keep-alive)
