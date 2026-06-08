@@ -1,9 +1,9 @@
 package org.example.server;
 
-import org.example.model.Room;
-import org.example.model.User;
-import org.example.model.Message;
-import org.example.persistence.PersistenceManager;
+import org.example.server.model.Room;
+import org.example.server.model.User;
+import org.example.server.model.Message;
+import org.example.server.persistence.PersistenceManager;
 import com.google.gson.*;
 
 import java.io.IOException;

@@ -1,9 +1,9 @@
-package org.example.persistence;
+package org.example.server.persistence;
 
 import com.google.gson.*;
-import org.example.model.User;
-import org.example.model.Room;
-import org.example.model.Message;
+import org.example.server.model.User;
+import org.example.server.model.Room;
+import org.example.server.model.Message;
 
 import java.io.*;
 import java.nio.file.*;

@@ -1,13 +1,12 @@
 package org.example.server;
 
-import org.example.model.User;
-import org.example.model.Room;
-import org.example.persistence.PersistenceManager;
+import org.example.server.model.Room;
+import org.example.server.model.User;
+import org.example.server.persistence.PersistenceManager;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.HashMap;
 import java.util.Map;
 
 public class ServerAuthRoomPersistenceTests {
@@ -27,7 +26,7 @@ public class ServerAuthRoomPersistenceTests {
         Assert.assertTrue(key >= 0);
 
         // login should succeed
-        org.example.model.User u = server.loginUser(username, key);
+        User u = server.loginUser(username, key);
         Assert.assertNotNull(u);
         Assert.assertEquals(username, u.getUsername());
     }
@@ -89,11 +88,11 @@ public class ServerAuthRoomPersistenceTests {
         Server server = new Server();
         server.registerUser(username);
 
-        Map<String, org.example.model.User> users = server.getRegisteredUsers();
+        Map<String, User> users = server.getRegisteredUsers();
         // Save explicitly
         PersistenceManager.saveUsers(users);
 
-        Map<String, org.example.model.User> loaded = PersistenceManager.loadUsers();
+        Map<String, User> loaded = PersistenceManager.loadUsers();
         Assert.assertTrue("Saved user should be present after reload", loaded.containsKey(username));
     }
 }

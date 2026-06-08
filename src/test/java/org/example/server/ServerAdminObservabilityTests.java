@@ -2,7 +2,7 @@ package org.example.server;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import org.example.persistence.PersistenceManager;
+import org.example.server.persistence.PersistenceManager;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -15,7 +15,6 @@ import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class ServerAdminObservabilityTests {

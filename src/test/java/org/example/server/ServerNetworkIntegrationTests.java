@@ -2,6 +2,7 @@ package org.example.server;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import org.example.server.persistence.PersistenceManager;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -23,8 +24,8 @@ public class ServerNetworkIntegrationTests {
     @Before
     public void setup() {
         String dir = "target/test-data/ServerNetworkIntegrationTests";
-        org.example.persistence.PersistenceManager.setDataDir(dir);
-        org.example.persistence.PersistenceManager.initialize();
+        PersistenceManager.setDataDir(dir);
+        PersistenceManager.initialize();
     }
 
     @Test

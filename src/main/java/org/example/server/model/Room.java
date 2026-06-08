@@ -1,6 +1,5 @@
-package org.example.model;
+package org.example.server.model;
 
-import java.io.Serializable;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 

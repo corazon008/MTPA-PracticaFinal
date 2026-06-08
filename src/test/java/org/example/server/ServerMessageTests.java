@@ -1,6 +1,7 @@
 package org.example.server;
 
-import org.example.model.Message;
+import org.example.server.model.Message;
+import org.example.server.persistence.PersistenceManager;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -18,8 +19,8 @@ public class ServerMessageTests {
     @Before
     public void setup() {
         String dir = "target/test-data/ServerMessageTests";
-        org.example.persistence.PersistenceManager.setDataDir(dir);
-        org.example.persistence.PersistenceManager.initialize();
+        PersistenceManager.setDataDir(dir);
+        PersistenceManager.initialize();
     }
 
     @Test

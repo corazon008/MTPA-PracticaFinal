@@ -1,5 +1,7 @@
 package org.example.server;
 
+import org.example.server.model.User;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -221,10 +223,10 @@ public class ServerApplication {
      * Lists all connected clients.
      */
     private void listConnectedClients() {
-        java.util.Map<String, org.example.model.User> users = server.getRegisteredUsers();
+        java.util.Map<String, User> users = server.getRegisteredUsers();
         System.out.println("\n=== Connected Clients ===");
         int count = 0;
-        for (org.example.model.User user : users.values()) {
+        for (User user : users.values()) {
             if (user.isConnected()) {
                 System.out.println("  - " + user.getUsername() + " (last heartbeat: "
                         + user.getLastHeartbeat() + ")");
@@ -241,9 +243,9 @@ public class ServerApplication {
      * Lists all registered users.
      */
     private void listRegisteredUsers() {
-        java.util.Map<String, org.example.model.User> users = server.getRegisteredUsers();
+        java.util.Map<String, User> users = server.getRegisteredUsers();
         System.out.println("\n=== Registered Users ===");
-        for (org.example.model.User user : users.values()) {
+        for (User user : users.values()) {
             String status = user.isConnected() ? "CONNECTED" : "OFFLINE";
             System.out.println("  - " + user.getUsername() + " [" + status + "]");
         }

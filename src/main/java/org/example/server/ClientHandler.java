@@ -2,9 +2,10 @@ package org.example.server;
 
 import org.example.protocol.ProtocolRequest;
 import org.example.protocol.ProtocolResponse;
-import org.example.model.Message;
+import org.example.server.model.Message;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import org.example.server.model.Room;
 
 import java.io.*;
 import java.net.Socket;
@@ -190,7 +191,7 @@ public class ClientHandler implements Runnable {
 
         JsonObject responseData = new JsonObject();
         int count = 0;
-        for (org.example.model.Room room : server.getRooms()) {
+        for (Room room : server.getRooms()) {
             JsonObject roomInfo = new JsonObject();
             roomInfo.addProperty("users", room.getUserCount());
             roomInfo.addProperty("messages", room.getMessageCount());
@@ -268,7 +269,7 @@ public class ClientHandler implements Runnable {
             String content = info.get("content").getAsString();
 
             // Create message
-            org.example.model.Message message = new org.example.model.Message(
+            Message message = new Message(
                     username, content, roomName, null);
 
             // Validate and store
@@ -314,7 +315,7 @@ public class ClientHandler implements Runnable {
             }
 
             // Create and send private message
-            org.example.model.Message message = new org.example.model.Message(
+            Message message = new Message(
                     username, content, null, receiver);
 
             server.sendPrivateMessage(message);
